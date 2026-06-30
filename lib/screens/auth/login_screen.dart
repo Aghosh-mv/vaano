@@ -1,7 +1,57 @@
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/vaano_logo.dart';
 import '../../services/auth_service.dart';
+import '../../services/guest_storage.dart';
+import '../home/home_screen.dart';
+import '../templates/templates_screen.dart';
+import '../ai_studio/ai_studio_screen.dart';
+import '../audio_studio/audio_studio_screen.dart';
+import '../export_share/export_share_screen.dart';
+
+class _GuestShell extends StatefulWidget {
+  const _GuestShell();
+  @override
+  State<_GuestShell> createState() => _GuestShellState();
+}
+
+class _GuestShellState extends State<_GuestShell> {
+  int _currentIndex = 0;
+  String _guestId = '';
+
+  final List<Widget> _screens = const [
+    HomeScreen(), TemplatesScreen(), AiStudioScreen(), AudioStudioScreen(), ExportShareScreen(),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _guestId = GuestStorage.getOrCreateGuestId();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.only(top: 8),
+        decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.cardLight, width: 0.5))),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (i) => setState(() => _currentIndex = i),
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.grid_view_outlined), activeIcon: Icon(Icons.grid_view), label: 'Templates'),
+            BottomNavigationBarItem(icon: Icon(Icons.auto_awesome_outlined), activeIcon: Icon(Icons.auto_awesome), label: 'AI Studio'),
+            BottomNavigationBarItem(icon: Icon(Icons.music_note_outlined), activeIcon: Icon(Icons.music_note), label: 'Audio'),
+            BottomNavigationBarItem(icon: Icon(Icons.ios_share_outlined), activeIcon: Icon(Icons.ios_share), label: 'Export'),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -154,6 +204,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const _GuestShell()));
+                    },
+                    icon: const Icon(Icons.person_outline, size: 20),
+                    label: const Text('Continue as Guest'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                      side: BorderSide(color: AppColors.cardLight),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
