@@ -40,7 +40,6 @@ class _VoiceChangerScreenState extends State<VoiceChangerScreen> {
     if (_isRecording) {
       if (_mediaRecorder != null && _mediaRecorder!.state == 'recording') _mediaRecorder!.stop();
       _stream?.getTracks().forEach((t) => t.stop());
-      if (_recordedChunks.isEmpty) _recordedChunks.add(html.Blob(['recorded_audio_data'], 'audio/webm'));
       _hasRecording = _recordedChunks.isNotEmpty;
       setState(() => _isRecording = false);
     } else {
@@ -49,19 +48,16 @@ class _VoiceChangerScreenState extends State<VoiceChangerScreen> {
         _recordedChunks = [];
         _hasRecording = false;
         _mediaRecorder = html.MediaRecorder(_stream!);
-        _mediaRecorder!.start();
-        Future.doWhile(() async {
-          await Future.delayed(const Duration(milliseconds: 500));
-          if (!mounted || _mediaRecorder == null) return false;
-          if (_mediaRecorder!.state == 'inactive' && _recordedChunks.isEmpty) {
-            _recordedChunks.add(html.Blob(['recorded_audio_data'], 'audio/webm'));
-            _hasRecording = true;
-            if (mounted) setState(() {});
-            return false;
-          }
-          return _isRecording;
-        });
-        setState(() => _isRecording = true);
+        _mediaRecorder!.addEventListener('dataavailable', (e) {
+      final be = e as html.BlobEvent;
+      if (be.data != null && be.data!.size > 0) _recordedChunks.add(be.data!);
+    });
+    _mediaRecorder!.addEventListener('stop', (_) {
+      _hasRecording = _recordedChunks.isNotEmpty;
+      if (mounted) setState(() {});
+    });
+    _mediaRecorder!.start();
+    setState(() => _isRecording = true);
       } catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Mic denied: $e'), backgroundColor: AppColors.error));
       }
