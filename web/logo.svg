@@ -1,0 +1,167 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <!-- Gold metallic gradient -->
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F2D06B"/>
+      <stop offset="25%" style="stop-color:#D4A537"/>
+      <stop offset="50%" style="stop-color:#F2D06B"/>
+      <stop offset="75%" style="stop-color:#B8860B"/>
+      <stop offset="100%" style="stop-color:#D4A537"/>
+    </linearGradient>
+    <linearGradient id="goldLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFF2CF"/>
+      <stop offset="30%" style="stop-color:#F2D06B"/>
+      <stop offset="70%" style="stop-color:#D4A537"/>
+      <stop offset="100%" style="stop-color:#B8860B"/>
+    </linearGradient>
+    <linearGradient id="goldDark" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#8B6914"/>
+      <stop offset="50%" style="stop-color:#B8860B"/>
+      <stop offset="100%" style="stop-color:#D4A537"/>
+    </linearGradient>
+    <linearGradient id="crownGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFF2CF"/>
+      <stop offset="20%" style="stop-color:#F2D06B"/>
+      <stop offset="60%" style="stop-color:#D4A537"/>
+      <stop offset="100%" style="stop-color:#8B6914"/>
+    </linearGradient>
+    <!-- Drop shadow filter -->
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+    <filter id="innerGlow">
+      <feGaussianBlur stdDeviation="1" result="blur"/>
+      <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowDiff"/>
+      <feFlood flood-color="#FFF2CF" flood-opacity="0.3"/>
+      <feComposite in2="shadowDiff" operator="in"/>
+      <feComposite in2="SourceGraphic" operator="over"/>
+    </filter>
+    <!-- Metallic sheen -->
+    <linearGradient id="sheen" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.4"/>
+      <stop offset="40%" style="stop-color:#FFFFFF;stop-opacity:0"/>
+      <stop offset="60%" style="stop-color:#FFFFFF;stop-opacity:0"/>
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0.15"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle (subtle dark badge) -->
+  <circle cx="200" cy="160" r="140" fill="#1A1A1A" stroke="url(#gold)" stroke-width="1.5" opacity="0.3"/>
+
+  <!-- === WINGS forming V === -->
+  <!-- Left wing - upper -->
+  <g filter="url(#shadow)">
+    <path d="M200 60 C180 55 140 60 100 80 C60 100 30 130 20 150
+             C30 140 60 120 90 110 C120 100 155 95 200 95
+             L200 60Z"
+          fill="url(#goldLight)" stroke="url(#goldDark)" stroke-width="0.5"/>
+    <!-- Left wing - mid feather -->
+    <path d="M200 95 C160 95 125 105 95 120 C65 135 40 160 25 185
+             C40 170 65 150 95 135 C125 120 160 110 200 110
+             L200 95Z"
+          fill="url(#gold)" stroke="url(#goldDark)" stroke-width="0.5"/>
+    <!-- Left wing - lower feather -->
+    <path d="M200 110 C165 115 130 130 100 150 C70 170 45 200 30 230
+             C50 210 75 185 105 165 C135 145 165 130 200 125
+             L200 110Z"
+          fill="url(#gold)" stroke="url(#goldDark)" stroke-width="0.5"/>
+    <!-- Left wing - bottom feather -->
+    <path d="M200 125 C170 130 140 150 115 175 C90 200 65 235 50 265
+             C70 240 95 210 120 190 C145 170 170 145 200 140
+             L200 125Z"
+          fill="url(#goldDark)" stroke="url(#goldDark)" stroke-width="0.5"/>
+  </g>
+
+  <!-- Right wing - upper -->
+  <g filter="url(#shadow)">
+    <path d="M200 60 C220 55 260 60 300 80 C340 100 370 130 380 150
+             C370 140 340 120 310 110 C280 100 245 95 200 95
+             L200 60Z"
+          fill="url(#goldLight)" stroke="url(#goldDark)" stroke-width="0.5"/>
+    <!-- Right wing - mid feather -->
+    <path d="M200 95 C240 95 275 105 305 120 C335 135 360 160 375 185
+             C360 170 335 150 305 135 C275 120 240 110 200 110
+             L200 95Z"
+          fill="url(#gold)" stroke="url(#goldDark)" stroke-width="0.5"/>
+    <!-- Right wing - lower feather -->
+    <path d="M200 110 C235 115 270 130 300 150 C330 170 355 200 370 230
+             C350 210 325 185 295 165 C265 145 235 130 200 125
+             L200 110Z"
+          fill="url(#gold)" stroke="url(#goldDark)" stroke-width="0.5"/>
+    <!-- Right wing - bottom feather -->
+    <path d="M200 125 C230 130 260 150 285 175 C310 200 335 235 350 265
+             C330 240 305 210 280 190 C255 170 230 145 200 140
+             L200 125Z"
+          fill="url(#goldDark)" stroke="url(#goldDark)" stroke-width="0.5"/>
+  </g>
+
+  <!-- === Central V body forming the V letter === -->
+  <g filter="url(#shadow)">
+    <!-- V left arm -->
+    <path d="M192 95 C180 130 160 180 140 230 C130 255 110 300 100 330
+             L115 330 C125 300 140 260 150 235 C165 195 182 145 195 110
+             L192 95Z"
+          fill="url(#goldLight)" stroke="url(#goldDark)" stroke-width="0.8"/>
+    <!-- V right arm -->
+    <path d="M208 95 C220 130 240 180 260 230 C270 255 290 300 300 330
+             L285 330 C275 300 260 260 250 235 C235 195 218 145 205 110
+             L208 95Z"
+          fill="url(#goldLight)" stroke="url(#goldDark)" stroke-width="0.8"/>
+    <!-- V left interior -->
+    <path d="M195 105 C183 140 163 190 143 240 C133 265 113 310 103 340
+             L118 340 C128 310 143 268 153 243 C168 203 185 153 198 118
+             L195 105Z"
+          fill="url(#gold)" stroke="url(#goldDark)" stroke-width="0.5"/>
+    <!-- V right interior -->
+    <path d="M205 105 C217 140 237 190 257 240 C267 265 287 310 297 340
+             L282 340 C272 310 257 268 247 243 C232 203 215 153 202 118
+             L205 105Z"
+          fill="url(#gold)" stroke="url(#goldDark)" stroke-width="0.5"/>
+  </g>
+
+  <!-- === CROWN in center dip of V === -->
+  <g filter="url(#shadow)">
+    <!-- Crown base -->
+    <rect x="178" y="82" width="44" height="22" rx="2" fill="url(#crownGold)" stroke="#8B6914" stroke-width="0.5"/>
+    <!-- Crown points -->
+    <polygon points="200,72 193,83 207,83" fill="url(#goldLight)" stroke="#8B6914" stroke-width="0.3"/>
+    <polygon points="185,76 180,83 190,83" fill="url(#goldLight)" stroke="#8B6914" stroke-width="0.3"/>
+    <polygon points="215,76 210,83 220,83" fill="url(#goldLight)" stroke="#8B6914" stroke-width="0.3"/>
+    <!-- Crown jewels -->
+    <circle cx="195" cy="93" r="2" fill="#E0115F"/>
+    <circle cx="200" cy="93" r="2" fill="#00BFFF"/>
+    <circle cx="205" cy="93" r="2" fill="#E0115F"/>
+    <!-- Crown detail line -->
+    <line x1="178" y1="88" x2="222" y2="88" stroke="#8B6914" stroke-width="0.3"/>
+  </g>
+
+  <!-- === Metallic sheen overlay on V === -->
+  <path d="M192 95 C180 130 160 180 140 230 C130 255 110 300 100 330
+           L115 330 C125 300 140 260 150 235 C165 195 182 145 195 110
+           L192 95Z
+           M208 95 C220 130 240 180 260 230 C270 255 290 300 300 330
+           L285 330 C275 300 260 260 250 235 C235 195 218 145 205 110
+           L208 95Z"
+        fill="url(#sheen)" opacity="0.6"/>
+
+  <!-- === Gold divider line === -->
+  <g filter="url(#shadow)">
+    <line x1="100" y1="358" x2="300" y2="358" stroke="url(#gold)" stroke-width="1.5"/>
+    <!-- Diamond star on divider -->
+    <polygon points="200,352 205,358 200,364 195,358" fill="url(#goldLight)" stroke="url(#goldDark)" stroke-width="0.3"/>
+    <!-- Gold dots -->
+    <circle cx="180" cy="358" r="1.5" fill="url(#gold)"/>
+    <circle cx="220" cy="358" r="1.5" fill="url(#gold)"/>
+  </g>
+
+  <!-- === Text VAÀNO (with grave accent) === -->
+  <g filter="url(#shadow)">
+    <text x="200" y="388" text-anchor="middle"
+          font-family="'Times New Roman', 'Georgia', 'Playfair Display', serif"
+          font-size="28" font-weight="bold" letter-spacing="8"
+          fill="url(#goldLight)" stroke="url(#goldDark)" stroke-width="0.3">
+      VA<tspan font-size="28" baseline-shift="super" dy="-5">`</tspan>ANO
+    </text>
+  </g>
+
+</svg>
