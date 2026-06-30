@@ -11,6 +11,8 @@ class VideoProcessor {
   List<html.Blob> _chunks = [];
   bool _isProcessing = false;
   double _progress = 0;
+  StreamSubscription? _timeSub;
+  List<void Function()> _cleanups = [];
 
   bool get isProcessing => _isProcessing;
   double get progress => _progress;
@@ -42,6 +44,7 @@ class VideoProcessor {
     _isProcessing = true;
     _progress = 0;
     _chunks = [];
+    _cleanups = [];
 
     final w = video.videoWidth;
     final h = video.videoHeight;
@@ -55,23 +58,38 @@ class VideoProcessor {
 
     final stream = _canvas!.captureStream(30) as html.MediaStream;
     _recorder = html.MediaRecorder(stream, {});
-    _recorder!.ondataavailable = (e) {
-      if (e.data.size > 0) _chunks.add(e.data);
-    };
 
     final completer = Completer<void>();
-    _recorder!.onStop = (_) {
+
+    void onData(html.Event e) {
+      final be = e as html.BlobEvent;
+      if (be.data != null && be.data!.size > 0) _chunks.add(be.data!);
+    }
+    void onStop(html.Event _) {
       final blob = html.Blob(_chunks, 'video/webm');
       _downloadBlob(blob, outputFileName.replaceAll(RegExp(r'\.[^.]+$'), '.webm'));
       _isProcessing = false;
       completer.complete();
-    };
+    }
+    void onError(html.Event _) {
+      _isProcessing = false;
+      if (!completer.isCompleted) completer.complete();
+    }
+
+    _recorder!.addEventListener('dataavailable', onData);
+    _recorder!.addEventListener('stop', onStop);
+    _recorder!.addEventListener('error', onError);
+    _cleanups = [
+      () => _recorder!.removeEventListener('dataavailable', onData),
+      () => _recorder!.removeEventListener('stop', onStop),
+      () => _recorder!.removeEventListener('error', onError),
+    ];
 
     _recorder!.start(100);
     video.currentTime = startTime;
     video.muted = true;
 
-    video.onTimeUpdate.listen((_) {
+    _timeSub = video.onTimeUpdate.listen((_) {
       if (!_isProcessing) return;
       final ct = video.currentTime as double;
       if (ct >= endTime) {
@@ -93,7 +111,7 @@ class VideoProcessor {
     required double time,
   }) async {
     video.currentTime = time;
-    await Future.delayed(const Duration(milliseconds: 100));
+    await Future.delayed(const Duration(milliseconds: 200));
     final w = video.videoWidth;
     final h = video.videoHeight;
     if (w == 0 || h == 0) return;
@@ -118,6 +136,8 @@ class VideoProcessor {
   }
 
   void dispose() {
+    _timeSub?.cancel();
+    for (final c in _cleanups) { c(); }
     _recorder?.stop();
     _video?.pause();
     _canvas?.remove();

@@ -65,7 +65,9 @@ class _TrimCutSplitScreenState extends State<TrimCutSplitScreen> {
     if (_video == null) return;
     _video!.currentTime = _trimRange.start;
     _video!.play();
-    Future.delayed(Duration(seconds: (_trimRange.end - _trimRange.start).toInt()).clamp(Duration.zero, const Duration(seconds: 30)), () {
+    final duration = (_trimRange.end - _trimRange.start).toInt();
+    final delay = duration > 30 ? const Duration(seconds: 30) : Duration(seconds: duration);
+    Future.delayed(delay, () {
       _video!.pause();
     });
   }
