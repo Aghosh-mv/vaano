@@ -8,9 +8,15 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase
-  final supabase = SupabaseService();
-  await supabase.initialize();
+  // Initialize Supabase (wrap in try-catch to prevent white screen on failure)
+  late SupabaseService supabase;
+  try {
+    supabase = SupabaseService();
+    await supabase.initialize();
+  } catch (e) {
+    debugPrint('Supabase init error: $e');
+    supabase = SupabaseService();
+  }
 
   // Set Gemini API key from environment (set on Vercel as GEMINI_API_KEY)
   final geminiKey = const String.fromEnvironment('GEMINI_API_KEY',
