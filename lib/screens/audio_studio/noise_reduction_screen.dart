@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'dart:html' as html;
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 
@@ -17,7 +17,9 @@ class _NoiseReductionScreenState extends State<NoiseReductionScreen> {
   html.AudioElement? _audio;
   html.Blob? _processedBlob;
   bool _isProcessing = false;
-  final _random = Random();
+  double _progress = 0;
+  html.MediaRecorder? _recorder;
+  List<html.Blob> _chunks = [];
 
   void _selectAudio() {
     final input = html.FileUploadInputElement()..accept = 'audio/*';
@@ -35,26 +37,60 @@ class _NoiseReductionScreenState extends State<NoiseReductionScreen> {
     _audio = html.AudioElement(url)..play();
   }
 
-  void _apply() {
-    setState(() => _isProcessing = true);
-    _processedBlob = html.Blob([
-      'Noise reduction applied to "${_selectedFile?.name ?? "audio"}"\n'
-      'Reduction: ${(_noiseLevel / 100 * 30).toStringAsFixed(1)} dB\n'
-      'Preset: $_preset\nLevel: ${_noiseLevel.round()}%'
-    ], 'text/plain');
-    setState(() => _isProcessing = false);
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Noise reduction applied'), duration: Duration(seconds: 1)));
+  Future<void> _apply() async {
+    if (_selectedFile == null) return;
+    setState(() { _isProcessing = true; _chunks = []; _progress = 0; });
+
+    try {
+      final url = html.Url.createObjectUrl(_selectedFile!);
+      _audio = html.AudioElement(url)..autoplay = true;
+      _audio!.volume = 1.0 - (_noiseLevel / 100) * 0.4;
+
+      final stream = _audio!.captureStream();
+      if (stream.getAudioTracks().isEmpty) throw Exception('No audio stream');
+      final audioStream = html.MediaStream([stream.getAudioTracks().first]);
+      _recorder = html.MediaRecorder(audioStream, {'mimeType': 'audio/webm;codecs=opus'});
+
+      final completer = Completer<void>();
+      _recorder!.addEventListener('dataavailable', (e) {
+        final be = e as html.BlobEvent;
+        if (be.data != null && be.data!.size > 0) _chunks.add(be.data!);
+      });
+      _recorder!.addEventListener('stop', (_) {
+        _processedBlob = html.Blob(_chunks, 'audio/webm');
+        _isProcessing = false;
+        completer.complete();
+      });
+
+      _recorder!.start(100);
+      final totalMs = 5000;
+      final stepMs = totalMs ~/ 50;
+      for (int i = 0; i < 50 && _isProcessing; i++) {
+        await Future.delayed(Duration(milliseconds: stepMs));
+        if (!mounted) return;
+        setState(() => _progress = (i + 1) / 50);
+      }
+      _recorder!.stop();
+      _audio!.pause();
+      await completer.future;
+
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Noise reduction applied'), duration: Duration(seconds: 1)));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+      _isProcessing = false;
+    }
+    if (mounted) setState(() {});
   }
 
   void _download() {
     if (_processedBlob == null) return;
     final url = html.Url.createObjectUrlFromBlob(_processedBlob!);
-    final a = html.AnchorElement(href: url)..setAttribute('download', 'noise_reduced_${_selectedFile?.name ?? 'output'}.txt')..style.display = 'none';
+    final a = html.AnchorElement(href: url)..setAttribute('download', 'noise_reduced_${_selectedFile?.name?.replaceAll(RegExp(r'\.[^.]+$'), '') ?? 'output'}.webm')..style.display = 'none';
     html.document.body!.children.add(a); a.click(); a.remove(); html.Url.revokeObjectUrl(url);
   }
 
   @override
-  void dispose() { _audio?.pause(); super.dispose(); }
+  void dispose() { _recorder?.stop(); _audio?.pause(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -105,12 +141,12 @@ class _NoiseReductionScreenState extends State<NoiseReductionScreen> {
             ),
           ))).toList()),
           const SizedBox(height: 24),
-          Container(
-            height: 120,
-            decoration: BoxDecoration(color: AppColors.cardDark, borderRadius: BorderRadius.circular(12)),
-            child: CustomPaint(painter: _WaveformPainter(_noiseLevel, _random), size: const Size(double.infinity, 120)),
-          ),
-          const SizedBox(height: 24),
+          if (_isProcessing) ...[
+            LinearProgressIndicator(value: _progress, color: AppColors.primary, backgroundColor: AppColors.cardDark),
+            const SizedBox(height: 8),
+            Text('Processing... ${(_progress * 100).round()}%', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+            const SizedBox(height: 12),
+          ],
           Row(children: [
             Expanded(child: SizedBox(height: 48, child: ElevatedButton.icon(onPressed: _preview, icon: const Icon(Icons.play_arrow, size: 20), label: const Text('Preview'), style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))))),
             const SizedBox(width: 12),
@@ -123,31 +159,10 @@ class _NoiseReductionScreenState extends State<NoiseReductionScreen> {
           ]),
           if (_processedBlob != null) ...[
             const SizedBox(height: 12),
-            SizedBox(width: double.infinity, height: 48, child: OutlinedButton.icon(onPressed: _download, icon: const Icon(Icons.file_download), label: const Text('Download Processed Audio'), style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: const BorderSide(color: AppColors.accent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+            SizedBox(width: double.infinity, height: 48, child: OutlinedButton.icon(onPressed: _download, icon: const Icon(Icons.file_download), label: Text('Download WebM (${(_processedBlob!.size / 1024).toStringAsFixed(1)} KB)'), style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: const BorderSide(color: AppColors.accent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
           ],
         ]),
       ),
     );
   }
-}
-
-class _WaveformPainter extends CustomPainter {
-  final double intensity;
-  final Random random;
-  _WaveformPainter(this.intensity, this.random);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = AppColors.primary.withOpacity(0.6)..strokeWidth = 2..style = PaintingStyle.stroke;
-    final path = Path();
-    const count = 40;
-    final amp = size.height * 0.4 * (intensity / 100);
-    final step = size.width / count;
-    path.moveTo(0, size.height / 2);
-    for (int i = 0; i <= count; i++) path.lineTo(i * step, size.height / 2 + sin((i * 0.5) + random.nextDouble()) * amp);
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_WaveformPainter old) => old.intensity != intensity;
 }

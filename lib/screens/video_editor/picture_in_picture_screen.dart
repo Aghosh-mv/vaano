@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
@@ -16,6 +17,12 @@ class _PictureInPictureScreenState extends State<PictureInPictureScreen> {
   String _position = 'Bottom-Right';
   int _sizeIndex = 1;
   double _mainDuration = 0;
+  bool _isExporting = false;
+  double _progress = 0;
+  html.CanvasElement? _canvas;
+  html.CanvasRenderingContext2D? _ctx;
+  html.MediaRecorder? _recorder;
+  List<html.Blob> _chunks = [];
 
   final List<String> _positions = ['Top-Right', 'Top-Left', 'Bottom-Right', 'Bottom-Left'];
   final List<String> _sizeLabels = ['Small', 'Medium', 'Large'];
@@ -27,14 +34,9 @@ class _PictureInPictureScreenState extends State<PictureInPictureScreen> {
       if (input.files!.isNotEmpty) {
         final file = input.files![0];
         final url = html.Url.createObjectUrl(file);
-        _mainVideo = html.VideoElement()..src = url..controls = false..autoplay = false;
+        _mainVideo = html.VideoElement()..src = url..controls = false..autoplay = false..muted = true;
         _mainName = file.name ?? 'main.mp4';
-        _mainVideo!.onLoadedMetadata.listen((_) {
-          setState(() {
-            _mainDuration = _mainVideo!.duration.toDouble();
-            _hasMain = true;
-          });
-        });
+        _mainVideo!.onLoadedMetadata.listen((_) { setState(() { _mainDuration = _mainVideo!.duration.toDouble(); _hasMain = true; }); });
       }
     });
   }
@@ -46,19 +48,78 @@ class _PictureInPictureScreenState extends State<PictureInPictureScreen> {
       if (input.files!.isNotEmpty) {
         final file = input.files![0];
         final url = html.Url.createObjectUrl(file);
-        _overlayVideo = html.VideoElement()..src = url..controls = false..autoplay = false;
+        _overlayVideo = html.VideoElement()..src = url..controls = false..autoplay = false..muted = true;
         _overlayName = file.name ?? 'overlay.mp4';
         _overlayVideo!.onLoadedMetadata.listen((_) => setState(() => _hasOverlay = true));
       }
     });
   }
 
-  void _startPip() {
-    if (_mainVideo != null) {
-      _mainVideo!.play();
-      html.window.alert('Picture-in-Picture mode activated. Check browser controls.');
+  Future<void> _exportPip() async {
+    if (_mainVideo == null || _overlayVideo == null) return;
+    setState(() { _isExporting = true; _progress = 0; _chunks = []; });
+
+    final w = _mainVideo!.videoWidth;
+    final h = _mainVideo!.videoHeight;
+    final overlayW = _mainVideo!.videoWidth ~/ (_sizeIndex == 0 ? 4 : _sizeIndex == 1 ? 3 : 2);
+    final overlayH = _mainVideo!.videoHeight ~/ (_sizeIndex == 0 ? 4 : _sizeIndex == 1 ? 3 : 2);
+
+    _canvas = html.CanvasElement(width: w, height: h);
+    _ctx = _canvas!.context2D;
+    final stream = _canvas!.captureStream(30) as html.MediaStream;
+    _recorder = html.MediaRecorder(stream, {});
+    final completer = Completer<void>();
+
+    _recorder!.addEventListener('dataavailable', (e) {
+      final be = e as html.BlobEvent;
+      if (be.data != null && be.data!.size > 0) _chunks.add(be.data!);
+    });
+    _recorder!.addEventListener('stop', (_) {
+      final blob = html.Blob(_chunks, 'video/webm');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final a = html.AnchorElement(href: url)..setAttribute('download', 'pip_${_mainName.replaceAll(RegExp(r'\.[^.]+$'), '')}.webm')..style.display = 'none';
+      html.document.body!.children.add(a); a.click(); a.remove(); html.Url.revokeObjectUrl(url);
+      _isExporting = false;
+      completer.complete();
+    });
+
+    _recorder!.start(100);
+    final fps = 30;
+    final totalFrames = (_mainDuration * fps).round();
+    _mainVideo!.muted = true;
+    _overlayVideo!.muted = true;
+    _mainVideo!.currentTime = 0;
+    _overlayVideo!.currentTime = 0;
+    await Future.wait([_mainVideo!.play(), _overlayVideo!.play()]);
+
+    int ox, oy;
+    if (_position == 'Top-Right') { ox = w - overlayW - 16; oy = 16; }
+    else if (_position == 'Top-Left') { ox = 16; oy = 16; }
+    else if (_position == 'Bottom-Left') { ox = 16; oy = h - overlayH - 16; }
+    else { ox = w - overlayW - 16; oy = h - overlayH - 16; }
+
+    for (int i = 0; i < totalFrames && _isExporting; i++) {
+      final t = i / fps;
+      _mainVideo!.currentTime = t % _mainDuration;
+      _overlayVideo!.currentTime = t % _mainDuration;
+      await Future.delayed(const Duration(milliseconds: 16));
+      _ctx!.drawImage(_mainVideo!, 0, 0);
+      _ctx!.save();
+      _ctx!.translate(ox, oy);
+      _ctx!.scale(overlayW / _overlayVideo!.videoWidth, overlayH / _overlayVideo!.videoHeight);
+      _ctx!.drawImage(_overlayVideo!, 0, 0);
+      _ctx!.restore();
+      _progress = i / totalFrames;
+      if (mounted && i % fps == 0) setState(() {});
     }
+
+    _recorder!.stop();
+    await completer.future;
+    if (mounted) setState(() {});
   }
+
+  @override
+  void dispose() { _recorder?.stop(); _mainVideo?.pause(); _overlayVideo?.pause(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -70,17 +131,13 @@ class _PictureInPictureScreenState extends State<PictureInPictureScreen> {
         children: [
           if (!_hasMain)
             ElevatedButton.icon(
-              onPressed: _pickMain,
-              icon: const Icon(Icons.video_file),
-              label: const Text('Select Main Video'),
+              onPressed: _pickMain, icon: const Icon(Icons.video_file), label: const Text('Select Main Video'),
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             ),
           if (_hasMain && !_hasOverlay) const SizedBox(height: 8),
           if (!_hasOverlay)
             ElevatedButton.icon(
-              onPressed: _pickOverlay,
-              icon: const Icon(Icons.picture_in_picture),
-              label: const Text('Select Overlay Video'),
+              onPressed: _pickOverlay, icon: const Icon(Icons.picture_in_picture), label: const Text('Select Overlay Video'),
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.cardLight),
             ),
           if (_hasMain && _hasOverlay) ...[
@@ -123,42 +180,22 @@ class _PictureInPictureScreenState extends State<PictureInPictureScreen> {
               label: _sizeLabels[_sizeIndex],
               onChanged: (val) => setState(() => _sizeIndex = val.round()),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: _sizeLabels.asMap().entries.map((e) => Text(
-                e.value,
-                style: TextStyle(color: _sizeIndex == e.key ? AppColors.primary : AppColors.textSecondary, fontSize: 12),
-              )).toList(),
-            ),
             const SizedBox(height: 16),
+            if (_isExporting) ...[
+              LinearProgressIndicator(value: _progress, color: AppColors.primary, backgroundColor: AppColors.cardDark),
+              const SizedBox(height: 8),
+              Text('Exporting... ${(_progress * 100).round()}%', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              const SizedBox(height: 12),
+            ],
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _startPip,
+                onPressed: _isExporting ? null : _exportPip,
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 16)),
-                child: const Text('Start PiP'),
+                child: Text(_isExporting ? 'Exporting...' : 'Export PiP Video'),
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.amber),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.star, color: Colors.amber, size: 16),
-                  SizedBox(width: 4),
-                  Text('PREMIUM', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );

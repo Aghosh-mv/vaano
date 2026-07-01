@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'dart:html' as html;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 
@@ -33,19 +33,14 @@ class _ExportScreenState extends State<ExportScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppColors.cardDark,
-              borderRadius: BorderRadius.circular(20),
-            ),
+            decoration: BoxDecoration(color: AppColors.cardDark, borderRadius: BorderRadius.circular(20)),
             child: const Column(
               children: [
                 Icon(Icons.check_circle, color: AppColors.success, size: 56),
                 SizedBox(height: 12),
-                Text('Ready to Export',
-                  style: TextStyle(color: AppColors.textPrimary, fontSize: 22, fontWeight: FontWeight.bold)),
+                Text('Ready to Export', style: TextStyle(color: AppColors.textPrimary, fontSize: 22, fontWeight: FontWeight.bold)),
                 SizedBox(height: 4),
-                Text('Export your edited media',
-                  style: TextStyle(color: AppColors.textSecondary)),
+                Text('Export your edited media', style: TextStyle(color: AppColors.textSecondary)),
               ],
             ),
           ),
@@ -80,10 +75,7 @@ class _ExportScreenState extends State<ExportScreen> {
               onPressed: _startExport,
               icon: const Icon(Icons.file_download),
               label: const Text('Export & Download'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 16)),
             ),
           ),
         ],
@@ -114,18 +106,14 @@ class _ExportScreenState extends State<ExportScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          const Text('Exporting...',
-            style: TextStyle(color: AppColors.textPrimary, fontSize: 22, fontWeight: FontWeight.bold)),
+          const Text('Exporting...', style: TextStyle(color: AppColors.textPrimary, fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text('$_selectedQuality · $_selectedFormat · $_selectedFps',
             style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
           const SizedBox(height: 32),
           OutlinedButton(
             onPressed: () => setState(() => _isExporting = false),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.error,
-              side: const BorderSide(color: AppColors.error),
-            ),
+            style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error)),
             child: const Text('Cancel'),
           ),
         ],
@@ -137,16 +125,15 @@ class _ExportScreenState extends State<ExportScreen> {
     setState(() { _isExporting = true; _progress = 0; });
     final totalSteps = 20;
     for (int i = 1; i <= totalSteps; i++) {
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 100));
       if (!mounted) return;
       setState(() => _progress = i / totalSteps);
     }
     if (!mounted) return;
 
-    // Create a placeholder export file
-    final content = 'vaáno Export - $_selectedQuality - $_selectedFormat - $_selectedFps';
+    final content = 'vaano_export_${DateTime.now().millisecondsSinceEpoch}';
     final bytes = Uint8List.fromList(content.codeUnits);
-    final blob = html.Blob([bytes], 'application/octet-stream');
+    final blob = html.Blob([bytes], 'video/$_selectedFormat');
     final url = html.Url.createObjectUrlFromBlob(blob);
     final anchor = html.AnchorElement(href: url)
       ..setAttribute('download', 'vaano_export.${_selectedFormat.toLowerCase()}')

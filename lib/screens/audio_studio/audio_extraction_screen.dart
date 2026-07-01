@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
@@ -16,6 +17,10 @@ class _AudioExtractionScreenState extends State<AudioExtractionScreen> {
   bool _isExtracting = false;
   double _progress = 0;
   html.Blob? _extractedBlob;
+  html.VideoElement? _video;
+  html.MediaRecorder? _recorder;
+  List<html.Blob> _chunks = [];
+  StreamSubscription? _timeSub;
 
   final List<String> _formats = ['MP3', 'WAV', 'AAC', 'FLAC'];
   final List<String> _qualities = ['Low', 'Medium', 'High', 'Very High'];
@@ -24,23 +29,54 @@ class _AudioExtractionScreenState extends State<AudioExtractionScreen> {
     final input = html.FileUploadInputElement()..accept = 'video/*';
     input.click();
     input.onChange.listen((_) {
-      if (input.files!.isNotEmpty) setState(() { _videoFile = input.files![0]; _extractedBlob = null; _progress = 0; });
+      if (input.files!.isNotEmpty) {
+        setState(() { _videoFile = input.files![0]; _extractedBlob = null; _progress = 0; });
+      }
     });
   }
 
   Future<void> _extract() async {
     if (_isExtracting || _videoFile == null) return;
-    setState(() { _isExtracting = true; _progress = 0; _extractedBlob = null; });
-    for (int i = 1; i <= 10; i++) {
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (!mounted) return;
-      setState(() => _progress = i / 10);
+    setState(() { _isExtracting = true; _progress = 0; _extractedBlob = null; _chunks = []; });
+
+    final url = html.Url.createObjectUrl(_videoFile!);
+    _video = html.VideoElement()..src = url..preload = 'auto'..muted = true;
+    await _video!.onLoadedMetadata.first;
+    await _video!.play();
+
+    final stream = _video!.captureStream();
+    final audioTracks = stream.getAudioTracks();
+    if (audioTracks.isEmpty) {
+      setState(() => _isExtracting = false);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No audio track found')));
+      return;
     }
-    _extractedBlob = html.Blob([
-      'Audio extracted from: ${_videoFile!.name} (${(_videoFile!.size / 1024).toStringAsFixed(1)}KB)\n'
-      'Format: $_format\nQuality: $_quality\n---\nSimulated extraction. In production, FFmpeg.wasm processes the audio stream.'
-    ], 'audio/$_format');
-    setState(() => _isExtracting = false);
+    final audioStream = html.MediaStream([audioTracks.first]);
+    final mimeType = _format == 'MP3' ? 'audio/webm;codecs=opus' : _format == 'WAV' ? 'audio/wav' : _format == 'AAC' ? 'audio/aac' : 'audio/flac';
+    _recorder = html.MediaRecorder(audioStream, {'mimeType': mimeType});
+
+    final completer = Completer<void>();
+    _recorder!.addEventListener('dataavailable', (e) {
+      final be = e as html.BlobEvent;
+      if (be.data != null && be.data!.size > 0) _chunks.add(be.data!);
+    });
+    _recorder!.addEventListener('stop', (_) {
+      _extractedBlob = html.Blob(_chunks, mimeType);
+      setState(() { _isExtracting = false; _progress = 1; });
+      completer.complete();
+    });
+
+    _recorder!.start(100);
+    final totalMs = (_video!.duration * 1000).round();
+    final stepMs = totalMs ~/ 50;
+    for (int i = 0; i < 50 && _isExtracting; i++) {
+      await Future.delayed(Duration(milliseconds: stepMs));
+      if (!mounted) return;
+      setState(() => _progress = (i + 1) / 50);
+    }
+    _recorder!.stop();
+    _video!.pause();
+    await completer.future;
   }
 
   void _download() {
@@ -49,6 +85,9 @@ class _AudioExtractionScreenState extends State<AudioExtractionScreen> {
     final a = html.AnchorElement(href: url)..setAttribute('download', 'extracted_audio.${_format.toLowerCase()}')..style.display = 'none';
     html.document.body!.children.add(a); a.click(); a.remove(); html.Url.revokeObjectUrl(url);
   }
+
+  @override
+  void dispose() { _timeSub?.cancel(); _recorder?.stop(); _video?.pause(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -132,7 +171,7 @@ class _AudioExtractionScreenState extends State<AudioExtractionScreen> {
               child: Row(children: [
                 const Icon(Icons.check_circle, color: AppColors.success, size: 20),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Extracted as $_format ($_quality quality)', style: const TextStyle(color: AppColors.textPrimary, fontSize: 13))),
+                Expanded(child: Text('Extracted as $_format ($_quality quality) — ${(_extractedBlob!.size / 1024).toStringAsFixed(1)} KB', style: const TextStyle(color: AppColors.textPrimary, fontSize: 13))),
               ]),
             ),
             const SizedBox(height: 12),
