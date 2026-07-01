@@ -32,6 +32,18 @@
 
   <title>VAÀNO</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // Polyfill for passkeys_web plugin that crashes if PasskeyAuthenticator is missing
+    window.PasskeyAuthenticator = {
+      init: function() {},
+      register: function() { return Promise.resolve('{}'); },
+      login: function() { return Promise.resolve('{}'); },
+      cancelCurrentAuthenticatorOperation: function() {},
+      isUserVerifyingPlatformAuthenticatorAvailable: function() { return Promise.resolve(false); },
+      isConditionalMediationAvailable: function() { return Promise.resolve(false); },
+      hasPasskeySupport: function() { return false; },
+    };
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
