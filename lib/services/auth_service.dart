@@ -3,25 +3,38 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
 
 class AuthService {
-  final GoTrueClient _auth;
+  GoTrueClient? _auth;
 
-  AuthService() : _auth = SupabaseService().auth {
-    _auth.onAuthStateChange.listen((data) {
-      debugPrint('Auth state: ${data.event} - ${data.session?.user.email ?? "none"}');
-    });
+  AuthService() {
+    try {
+      _auth = SupabaseService().auth;
+      _auth!.onAuthStateChange.listen((data) {
+        debugPrint('Auth state: ${data.event} - ${data.session?.user.email ?? "none"}');
+      });
+    } catch (e) {
+      debugPrint('AuthService: Supabase not ready yet, using guest mode: $e');
+    }
   }
 
-  User? get currentUser => _auth.currentUser;
-  bool get isLoggedIn => currentUser != null;
-  String? get userId => currentUser?.id;
-  String? get userEmail => currentUser?.email;
-  String? get userName => currentUser?.userMetadata?['name'] as String?;
+  bool get isReady => _auth != null;
+  User? get currentUser => _auth?.currentUser;
+  bool get isLoggedIn => _auth?.currentUser != null;
+  String? get userId => _auth?.currentUser?.id;
+  String? get userEmail => _auth?.currentUser?.email;
+  String? get userName => _auth?.currentUser?.userMetadata?['name'] as String?;
 
-  Stream<AuthState> get authState => _auth.onAuthStateChange;
+  Stream<AuthState> get authState {
+    try {
+      return _auth?.onAuthStateChange ?? const Stream.empty();
+    } catch (_) {
+      return const Stream.empty();
+    }
+  }
 
   Future<AuthResult> signUp(String email, String password, String name) async {
+    if (_auth == null) return AuthResult(success: false, error: 'Auth not ready');
     try {
-      final response = await _auth.signUp(
+      final response = await _auth!.signUp(
         email: email.trim(),
         password: password,
         data: {'name': name},
@@ -39,8 +52,9 @@ class AuthService {
   }
 
   Future<AuthResult> signIn(String email, String password) async {
+    if (_auth == null) return AuthResult(success: false, error: 'Auth not ready');
     try {
-      final response = await _auth.signInWithPassword(
+      final response = await _auth!.signInWithPassword(
         email: email.trim(),
         password: password,
       );
@@ -53,8 +67,9 @@ class AuthService {
   }
 
   Future<AuthResult> signInWithGoogle() async {
+    if (_auth == null) return AuthResult(success: false, error: 'Auth not ready');
     try {
-      final response = await _auth.signInWithOAuth(
+      final response = await _auth!.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: 'https://vaano-v1.vercel.app/auth/callback',
       );
@@ -67,23 +82,29 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    await _auth.signOut();
+    try { await _auth?.signOut(); } catch (_) {}
   }
 
   Future<void> sendPasswordReset(String email) async {
-    await _auth.resetPasswordForEmail(email.trim(),
-      redirectTo: 'https://vaano-v1.vercel.app/auth/callback');
+    try {
+      await _auth!.resetPasswordForEmail(email.trim(),
+        redirectTo: 'https://vaano-v1.vercel.app/auth/callback');
+    } catch (_) {}
   }
 
   Future<void> _createUserProfile(User user) async {
-    await SupabaseService().client.from('users').upsert({
-      'id': user.id,
-      'email': user.email,
-      'name': user.userMetadata?['name'] ?? '',
-      'plan': 'free',
-      'storage_used': 0,
-      'created_at': DateTime.now().toIso8601String(),
-    });
+    try {
+      await SupabaseService().client.from('users').upsert({
+        'id': user.id,
+        'email': user.email,
+        'name': user.userMetadata?['name'] ?? '',
+        'plan': 'free',
+        'storage_used': 0,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('Profile creation error: $e');
+    }
   }
 
   String _parseError(String message) {

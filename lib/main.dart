@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/supabase_service.dart';
@@ -8,17 +10,16 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase (wrap in try-catch to prevent white screen on failure)
-  late SupabaseService supabase;
-  try {
-    supabase = SupabaseService();
-    await supabase.initialize();
-  } catch (e) {
-    debugPrint('Supabase init error: $e');
-    supabase = SupabaseService();
-  }
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('FATAL: ${details.exception}');
+  };
 
-  // Set Gemini API key from environment (set on Vercel as GEMINI_API_KEY)
+  ui.PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('PLATFORM ERROR: $error');
+    return true;
+  };
+
   final geminiKey = const String.fromEnvironment('GEMINI_API_KEY',
       defaultValue: '');
   if (geminiKey.isNotEmpty) {
@@ -29,9 +30,20 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SubscriptionService()),
-        Provider.value(value: supabase),
+        Provider.value(value: SupabaseService()),
       ],
       child: const VaanoApp(),
     ),
   );
+
+  // Initialize Supabase asynchronously after app renders (prevents white screen)
+  // Add timeout to prevent hanging on web (known supabase_flutter + Hive issue)
+  try {
+    final supabase = SupabaseService();
+    await supabase.initialize().timeout(const Duration(seconds: 5));
+  } on TimeoutException {
+    debugPrint('Supabase init timed out (continuing without auth)');
+  } catch (e) {
+    debugPrint('Supabase init error (non-fatal): $e');
+  }
 }
